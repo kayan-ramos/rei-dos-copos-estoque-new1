@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "rm -rf dist",
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
