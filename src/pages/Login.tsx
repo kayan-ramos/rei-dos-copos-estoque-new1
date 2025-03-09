@@ -18,19 +18,36 @@ export function Login() {
     setLoading(true);
 
     try {
+      // Check for master admin credentials
+      if (email === 'kayan.ramos@back2basics.com.br' && password === 'DWS#123456') {
+        setUser({
+          id: 'master-admin',
+          email: 'kayan.ramos@back2basics.com.br',
+          name: 'Kayan Ramos',
+          role: 'admin',
+          must_change_password: true
+        });
+        navigate('/admin');
+        return;
+      }
+
       // TODO: Replace with actual authentication
       if (email === 'admin@example.com' && password === 'admin') {
         setUser({
           id: '1',
           email: 'admin@example.com',
-          name: 'Admin'
+          name: 'Admin',
+          role: 'admin',
+          must_change_password: false
         });
         navigate('/admin');
       } else if (email && password) {
         setUser({
           id: '2',
           email,
-          name: email.split('@')[0]
+          name: email.split('@')[0],
+          role: 'customer',
+          must_change_password: false
         });
         const from = location.state?.from?.pathname || '/';
         navigate(from);

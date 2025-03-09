@@ -14,18 +14,12 @@ services:
       - key: NODE_ENV
         scope: RUN_TIME
         value: "production"
-      - key: VITE_SUPABASE_URL
-        scope: RUN_TIME
-        value: ${VITE_SUPABASE_URL}
-      - key: VITE_SUPABASE_ANON_KEY  
-        scope: RUN_TIME
-        value: ${VITE_SUPABASE_ANON_KEY}
       - key: VITE_PG_HOST
         scope: RUN_TIME
         value: ${VITE_PG_HOST}
       - key: VITE_PG_PORT
         scope: RUN_TIME
-        value: ${VITE_PG_PORT}  
+        value: ${VITE_PG_PORT}
       - key: VITE_PG_DATABASE
         scope: RUN_TIME
         value: ${VITE_PG_DATABASE}
@@ -42,10 +36,10 @@ services:
     instance_count: 1
     instance_size_slug: basic-xxs
     health_check:
-      http_path: /
+      http_path: /health
       port: 8080
-      initial_delay_seconds: 30
-      period_seconds: 10
-      timeout_seconds: 5
+      initial_delay_seconds: 10
+      period_seconds: 5
+      timeout_seconds: 2
       success_threshold: 1
       failure_threshold: 3

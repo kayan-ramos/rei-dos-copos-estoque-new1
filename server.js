@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Load environment variables from .env file if it exists
 let env = {};
@@ -26,14 +26,17 @@ try {
   console.log('No .env file found or error reading it:', error.message);
 }
 
-// PostgreSQL connection
+// PostgreSQL connection with connection pooling
 const pool = new pg.Pool({
   host: process.env.VITE_PG_HOST || env.VITE_PG_HOST || 'localhost',
   port: parseInt(process.env.VITE_PG_PORT || env.VITE_PG_PORT || '5432'),
   database: process.env.VITE_PG_DATABASE || env.VITE_PG_DATABASE || 'inventory',
   user: process.env.VITE_PG_USER || env.VITE_PG_USER || 'postgres',
   password: process.env.VITE_PG_PASSWORD || env.VITE_PG_PASSWORD || 'postgres',
-  ssl: (process.env.VITE_PG_SSL === 'true' || env.VITE_PG_SSL === 'true') ? { rejectUnauthorized: false } : false
+  ssl: (process.env.VITE_PG_SSL === 'true' || env.VITE_PG_SSL === 'true') ? { rejectUnauthorized: false } : false,
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000 // Return an error after 2 seconds if connection could not be established
 });
 
 // Test the database connection
@@ -49,21 +52,28 @@ pool.query('SELECT NOW()', (err, res) => {
 app.use(compression());
 app.use(express.json());
 
-// Serve static files from the dist directory
-app.use(express.static(join(__dirname, 'dist')));
-
-// Enable CORS for all routes
+// Enable CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
-  
   next();
+});
+
+// Serve static files with caching
+app.use(express.static(join(__dirname, 'dist'), {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true
+}));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 // API Routes
@@ -84,311 +94,32 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Products endpoints
-app.get('/api/products', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM products ORDER BY category, name');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching products:', err);
-    res.status(500).json({ error: 'Failed to fetch products' });
-  }
-});
-
-app.post('/api/products', async (req, res) => {
-  const product = req.body;
-  
-  try {
-    const result = await pool.query(
-      `INSERT INTO products (
-        ean_code, name, category, initial_quantity, image_url, 
-        package_quantity, package_type, purchase_price, sale_price, 
-        supplier, active, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
-      [
-        product.ean_code,
-        product.name,
-        product.category,
-        product.initial_quantity || 0,
-        product.image_url,
-        product.package_quantity || 0,
-        product.package_type,
-        product.purchase_price || 0,
-        product.sale_price || 0,
-        product.supplier,
-        product.active !== undefined ? product.active : true,
-        new Date().toISOString()
-      ]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error adding product:', err);
-    res.status(500).json({ error: 'Failed to add product' });
-  }
-});
-
-app.patch('/api/products/:eanCode', async (req, res) => {
-  const { eanCode } = req.params;
-  const updates = req.body;
-  
-  try {
-    const setValues = [];
-    const queryParams = [eanCode];
-    let paramIndex = 2;
-    
-    for (const [key, value] of Object.entries(updates)) {
-      const columnName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-      setValues.push(`${columnName} = $${paramIndex}`);
-      queryParams.push(value);
-      paramIndex++;
-    }
-    
-    if (setValues.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' });
-    }
-    
-    const query = `
-      UPDATE products 
-      SET ${setValues.join(', ')} 
-      WHERE ean_code = $1 
-      RETURNING *
-    `;
-    
-    const result = await pool.query(query, queryParams);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error updating product:', err);
-    res.status(500).json({ error: 'Failed to update product' });
-  }
-});
-
-// Inventory counts endpoints
-app.get('/api/inventory-counts', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM inventory_counts ORDER BY counted_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching inventory counts:', err);
-    res.status(500).json({ error: 'Failed to fetch inventory counts' });
-  }
-});
-
-app.post('/api/inventory-counts', async (req, res) => {
-  const { ean_code, quantity } = req.body;
-  
-  try {
-    const result = await pool.query(
-      'INSERT INTO inventory_counts (id, ean_code, quantity, counted_at) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING *',
-      [ean_code, quantity, new Date().toISOString()]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error adding inventory count:', err);
-    res.status(500).json({ error: 'Failed to add inventory count' });
-  }
-});
-
-app.get('/api/inventory-counts/latest/:eanCode', async (req, res) => {
-  const { eanCode } = req.params;
-  
-  try {
-    const result = await pool.query(
-      'SELECT * FROM inventory_counts WHERE ean_code = $1 ORDER BY counted_at DESC LIMIT 1',
-      [eanCode]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'No inventory count found for this product' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error fetching latest inventory count:', err);
-    res.status(500).json({ error: 'Failed to fetch latest inventory count' });
-  }
-});
-
-// Cash counts endpoints
-app.get('/api/cash-counts', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM cash_counts ORDER BY date DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching cash counts:', err);
-    res.status(500).json({ error: 'Failed to fetch cash counts' });
-  }
-});
-
-app.post('/api/cash-counts', async (req, res) => {
-  const { date, notes, coins, total, comments } = req.body;
-  
-  try {
-    const result = await pool.query(
-      `INSERT INTO cash_counts (
-        id, date, notes, coins, total, created_at, updated_at, comments
-      ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [
-        date,
-        notes,
-        coins,
-        total,
-        new Date().toISOString(),
-        new Date().toISOString(),
-        comments
-      ]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error adding cash count:', err);
-    res.status(500).json({ error: 'Failed to add cash count' });
-  }
-});
-
-app.get('/api/cash-counts/date/:date', async (req, res) => {
-  const { date } = req.params;
-  
-  try {
-    const searchDate = new Date(date);
-    const startOfDay = new Date(searchDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(searchDate);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    const result = await pool.query(
-      'SELECT * FROM cash_counts WHERE date >= $1 AND date <= $2 LIMIT 1',
-      [startOfDay.toISOString(), endOfDay.toISOString()]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'No cash count found for this date' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error fetching cash count by date:', err);
-    res.status(500).json({ error: 'Failed to fetch cash count by date' });
-  }
-});
-
-app.get('/api/cash-counts/history', async (req, res) => {
-  const { startDate, endDate } = req.query;
-  
-  try {
-    const result = await pool.query(
-      'SELECT * FROM cash_counts WHERE date >= $1 AND date <= $2 ORDER BY date DESC',
-      [startDate, endDate]
-    );
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching cash count history:', err);
-    res.status(500).json({ error: 'Failed to fetch cash count history' });
-  }
-});
-
-app.patch('/api/cash-counts/:id', async (req, res) => {
-  const { id } = req.params;
-  const updates = req.body;
-  
-  try {
-    updates.updated_at = new Date().toISOString();
-    
-    const setValues = [];
-    const queryParams = [id];
-    let paramIndex = 2;
-    
-    for (const [key, value] of Object.entries(updates)) {
-      const columnName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-      setValues.push(`${columnName} = $${paramIndex}`);
-      queryParams.push(value);
-      paramIndex++;
-    }
-    
-    if (setValues.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' });
-    }
-    
-    const query = `
-      UPDATE cash_counts 
-      SET ${setValues.join(', ')} 
-      WHERE id = $1 
-      RETURNING *
-    `;
-    
-    const result = await pool.query(query, queryParams);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Cash count not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error updating cash count:', err);
-    res.status(500).json({ error: 'Failed to update cash count' });
-  }
-});
-
-// Cash count logs endpoints
-app.get('/api/cash-count-logs/:cashCountId', async (req, res) => {
-  const { cashCountId } = req.params;
-  
-  try {
-    const result = await pool.query(
-      'SELECT * FROM cash_count_logs WHERE cash_count_id = $1 ORDER BY date DESC',
-      [cashCountId]
-    );
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching cash count logs:', err);
-    res.status(500).json({ error: 'Failed to fetch cash count logs' });
-  }
-});
-
-app.post('/api/cash-count-logs', async (req, res) => {
-  const log = req.body;
-  
-  try {
-    const result = await pool.query(
-      `INSERT INTO cash_count_logs (
-        id, cash_count_id, date, type, previous_total, new_total,
-        previous_date, new_date, notes, coins, comments
-      ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [
-        log.cash_count_id,
-        log.date || new Date().toISOString(),
-        log.type,
-        log.previous_total,
-        log.new_total,
-        log.previous_date,
-        log.new_date,
-        log.notes,
-        log.coins,
-        log.comments
-      ]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error adding cash count log:', err);
-    res.status(500).json({ error: 'Failed to add cash count log' });
-  }
-});
-
 // Handle all other routes - Important for client-side routing
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Start server with graceful shutdown
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    pool.end(() => {
+      console.log('Database pool closed');
+      process.exit(0);
+    });
+  });
 });

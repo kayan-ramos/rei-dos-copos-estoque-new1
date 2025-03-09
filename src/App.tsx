@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Cart } from './pages/Cart';
@@ -8,6 +8,7 @@ import { Navbar } from './components/Navbar';
 import { useStore } from './lib/store';
 import { Completo } from './pages/Completo';
 import { Operacional } from './pages/Operacional';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const user = useStore((state) => state.user);
@@ -16,11 +17,20 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const user = useStore((state) => state.user);
-  const isAdmin = user?.email === 'admin@example.com'; // Replace with your admin check
+  const isAdmin = user?.role === 'admin';
   return isAdmin ? <>{children}</> : <Navigate to="/" />;
 }
 
 export default function App() {
+  const user = useStore((state) => state.user);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  useEffect(() => {
+    if (user?.must_change_password) {
+      setShowChangePassword(true);
+    }
+  }, [user]);
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-100">
@@ -56,6 +66,10 @@ export default function App() {
             />
           </Routes>
         </main>
+
+        {showChangePassword && (
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        )}
       </div>
     </Router>
   );
