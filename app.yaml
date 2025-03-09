@@ -8,6 +8,12 @@ services:
     build_command: npm run build
     run_command: npm start
     envs:
+      - key: PORT
+        scope: RUN_TIME
+        value: "8080"
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: "production"
       - key: VITE_SUPABASE_URL
         scope: RUN_TIME
         value: ${VITE_SUPABASE_URL}
@@ -32,6 +38,14 @@ services:
       - key: VITE_PG_SSL
         scope: RUN_TIME
         value: ${VITE_PG_SSL}
-    http_port: 3000
+    http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs
+    health_check:
+      http_path: /
+      port: 8080
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3

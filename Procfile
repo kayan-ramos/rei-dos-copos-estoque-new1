@@ -1,1 +1,1 @@
-web: vite preview --port 8080
+web: npm run start

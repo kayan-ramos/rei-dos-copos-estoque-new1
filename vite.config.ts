@@ -19,12 +19,11 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
-      }
-    }
+    host: '0.0.0.0',
+    port: parseInt(process.env.PORT || '8080')
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: parseInt(process.env.PORT || '8080')
   }
 });
