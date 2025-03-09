@@ -1,0 +1,37 @@
+name: inventory-control
+services:
+  - name: web
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: owner/inventory-control
+    build_command: npm run build
+    run_command: npm start
+    envs:
+      - key: VITE_SUPABASE_URL
+        scope: RUN_TIME
+        value: ${VITE_SUPABASE_URL}
+      - key: VITE_SUPABASE_ANON_KEY  
+        scope: RUN_TIME
+        value: ${VITE_SUPABASE_ANON_KEY}
+      - key: VITE_PG_HOST
+        scope: RUN_TIME
+        value: ${VITE_PG_HOST}
+      - key: VITE_PG_PORT
+        scope: RUN_TIME
+        value: ${VITE_PG_PORT}  
+      - key: VITE_PG_DATABASE
+        scope: RUN_TIME
+        value: ${VITE_PG_DATABASE}
+      - key: VITE_PG_USER
+        scope: RUN_TIME
+        value: ${VITE_PG_USER}
+      - key: VITE_PG_PASSWORD
+        scope: RUN_TIME
+        value: ${VITE_PG_PASSWORD}
+      - key: VITE_PG_SSL
+        scope: RUN_TIME
+        value: ${VITE_PG_SSL}
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs
