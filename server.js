@@ -48,6 +48,8 @@ pool.query('SELECT NOW()', (err, res) => {
 // Middleware
 app.use(compression());
 app.use(express.json());
+
+// Serve static files from the dist directory
 app.use(express.static(join(__dirname, 'dist')));
 
 // Enable CORS for all routes
@@ -64,7 +66,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// API endpoint to check database connection
+// API Routes
 app.get('/api/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
@@ -131,13 +133,11 @@ app.patch('/api/products/:eanCode', async (req, res) => {
   const updates = req.body;
   
   try {
-    // Build the SET part of the query dynamically based on the updates
     const setValues = [];
     const queryParams = [eanCode];
     let paramIndex = 2;
     
     for (const [key, value] of Object.entries(updates)) {
-      // Convert camelCase to snake_case for database column names
       const columnName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
       setValues.push(`${columnName} = $${paramIndex}`);
       queryParams.push(value);
@@ -256,7 +256,6 @@ app.get('/api/cash-counts/date/:date', async (req, res) => {
   const { date } = req.params;
   
   try {
-    // Convert the date string to a Date object
     const searchDate = new Date(date);
     const startOfDay = new Date(searchDate);
     startOfDay.setHours(0, 0, 0, 0);
@@ -301,16 +300,13 @@ app.patch('/api/cash-counts/:id', async (req, res) => {
   const updates = req.body;
   
   try {
-    // Add updated_at to the updates
     updates.updated_at = new Date().toISOString();
     
-    // Build the SET part of the query dynamically based on the updates
     const setValues = [];
     const queryParams = [id];
     let paramIndex = 2;
     
     for (const [key, value] of Object.entries(updates)) {
-      // Convert camelCase to snake_case for database column names
       const columnName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
       setValues.push(`${columnName} = $${paramIndex}`);
       queryParams.push(value);
@@ -388,11 +384,11 @@ app.post('/api/cash-count-logs', async (req, res) => {
   }
 });
 
-// Redirecionar todas as requisições para o index.html (para SPA)
+// Handle all other routes - Important for client-side routing
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
