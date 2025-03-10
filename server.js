@@ -28,15 +28,17 @@ try {
 
 // PostgreSQL connection with connection pooling
 const pool = new pg.Pool({
-  host: process.env.VITE_PG_HOST || env.VITE_PG_HOST || 'localhost',
-  port: parseInt(process.env.VITE_PG_PORT || env.VITE_PG_PORT || '5432'),
-  database: process.env.VITE_PG_DATABASE || env.VITE_PG_DATABASE || 'inventory',
-  user: process.env.VITE_PG_USER || env.VITE_PG_USER || 'postgres',
-  password: process.env.VITE_PG_PASSWORD || env.VITE_PG_PASSWORD || 'postgres',
-  ssl: (process.env.VITE_PG_SSL === 'true' || env.VITE_PG_SSL === 'true') ? { rejectUnauthorized: false } : false,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000 // Return an error after 2 seconds if connection could not be established
+  host: process.env.VITE_PG_HOST || env.VITE_PG_HOST || 'app-f14da2d1-1e66-4d01-8cbd-f776f61f6cbf-do-user-3985658-0.e.db.ondigitalocean.com',
+  port: parseInt(process.env.VITE_PG_PORT || env.VITE_PG_PORT || '25060'),
+  database: process.env.VITE_PG_DATABASE || env.VITE_PG_DATABASE || 'db-rei-dos-copos-sistema-estoque',
+  user: process.env.VITE_PG_USER || env.VITE_PG_USER || 'db-rei-dos-copos-sistema-estoque',
+  password: process.env.VITE_PG_PASSWORD || env.VITE_PG_PASSWORD || 'AVNS_4x1aD__uTLcPKKjT_CN',
+  ssl: {
+    rejectUnauthorized: false // Required for DigitalOcean managed databases
+  },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
 });
 
 // Test the database connection

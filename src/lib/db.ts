@@ -1,16 +1,18 @@
 import { Pool } from 'pg';
 
-// PostgreSQL connection pool
+// PostgreSQL connection pool configuration
 const pool = new Pool({
-  host: process.env.VITE_PG_HOST || 'localhost',
-  port: parseInt(process.env.VITE_PG_PORT || '5432'),
-  database: process.env.VITE_PG_DATABASE || 'inventory',
-  user: process.env.VITE_PG_USER || 'postgres',
-  password: process.env.VITE_PG_PASSWORD || 'postgres',
-  ssl: process.env.VITE_PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  host: process.env.VITE_PG_HOST || 'app-f14da2d1-1e66-4d01-8cbd-f776f61f6cbf-do-user-3985658-0.e.db.ondigitalocean.com',
+  port: parseInt(process.env.VITE_PG_PORT || '25060'),
+  database: process.env.VITE_PG_DATABASE || 'db-rei-dos-copos-sistema-estoque',
+  user: process.env.VITE_PG_USER || 'db-rei-dos-copos-sistema-estoque',
+  password: process.env.VITE_PG_PASSWORD || 'AVNS_4x1aD__uTLcPKKjT_CN',
+  ssl: {
+    rejectUnauthorized: false // Required for DigitalOcean managed databases
+  },
   max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000 // Return an error after 2 seconds if connection could not be established
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+  connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
 });
 
 // Test the database connection
@@ -22,7 +24,7 @@ pool.query('SELECT NOW()', (err, res) => {
   }
 });
 
-// Database interface
+// Database interfaces
 export interface Product {
   ean_code: string;
   name: string;

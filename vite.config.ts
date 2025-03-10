@@ -24,11 +24,13 @@ export default defineConfig({
     }
   },
   server: {
-    host: '0.0.0.0',
-    port: parseInt(process.env.PORT || '8080')
+    host: true,
+    port: parseInt(process.env.PORT || '8080'),
+    strictPort: true
   },
   preview: {
-    host: '0.0.0.0',
-    port: parseInt(process.env.PORT || '8080')
+    host: true,
+    port: parseInt(process.env.PORT || '8080'),
+    strictPort: true
   }
 });
